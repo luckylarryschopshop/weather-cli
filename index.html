@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Forecast</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --text: #e6edf3;
+      --accent: #f97316;
+      --card: #1a1e23;
+      --error: #e53e3e;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .search {
+      display: flex;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+    }
+    .search input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 5px 0 0 5px;
+      background: var(--card);
+      color: var(--text);
+    }
+    .search button {
+      padding: 10px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+    }
+    .weather {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .forecast {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .forecast-card {
+      background: var(--card);
+      padding: 15px;
+      border-radius: 10px;
+      flex: 1 1 30%;
+      min-width: 200px;
+      text-align: center;
+    }
+    .forecast-card h3 {
+      margin: 5px 0;
+    }
+    .toggle {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+    }
+    .toggle button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .spinner {
+      display: none;
+      margin: 20px auto;
+      border: 4px solid #fff;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error {
+      color: var(--error);
+      margin-top: 10px;
+    }
+    @media (max-width: 600px) {
+      .forecast {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Weather Forecast</h1>
+  <div class="search">
+    <input type="text" id="cityInput" placeholder="Enter city name" />
+    <button onclick="getWeather()">Search</button>
+  </div>
+  <div class="weather" id="weatherDisplay">
+    <div class="spinner" id="spinner"></div>
+    <div id="error" class="error"></div>
+    <div id="currentWeather"></div>
+    <div class="toggle">
+      <button onclick="toggleUnit()">Toggle Temperature Unit</button>
+    </div>
+    <div class="forecast" id="forecastCards"></div>
+  </div>
+
+  <script>
+    const cityInput = document.getElementById('cityInput');
+    const weatherDisplay = document.getElementById('weatherDisplay');
+    const error = document.getElementById('error');
+    const spinner = document.getElementById('spinner');
+    const currentWeather = document.getElementById('currentWeather');
+    const forecastCards = document.getElementById('forecastCards');
+    let unit = 'C';
+
+    function toggleUnit() {
+      unit = unit === 'C' ? 'F' : 'C';
+      getWeather();
+    }
+
+    function getWeather() {
+      const city = cityInput.value.trim();
+      if (!city) return;
+      error.textContent = '';
+      spinner.style.display = 'block';
+      currentWeather.innerHTML = '';
+      forecastCards.innerHTML = '';
+
+      fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`)
+        .then(res => {
+          if (!res.ok) throw new Error('City not found');
+          return res.json();
+        })
+        .then(data => {
+          spinner.style.display = 'none';
+          if (data.current_condition) {
+            const current = data.current_condition[0];
+            const temp = unit === 'C' ? current.temp_C : current.temp_F;
+            const icon = getIcon(current.weatherDesc[0].value);
+            currentWeather.innerHTML = `
+              <h2>${data.city_name} ${icon}</h2>
+              <p>🌡️ ${temp}°${unit}</p>
+              <p>🌡️ ${current.weatherDesc[0].value}</p>
+              <p>💧 Humidity: ${current.humidity}%</p>
+              <p>🌬️ Wind: ${current.windspeedKmph} km/h</p>
+            `;
+            renderForecast(data.weather, unit);
+          } else {
+            error.textContent = 'No weather data found.';
+          }
+        })
+        .catch(err => {
+          spinner.style.display = 'none';
+          error.textContent = 'Invalid city. Please try again.';
+        });
+    }
+
+    function renderForecast(weatherData, unit) {
+      weatherData.forEach(day => {
+        const max = unit === 'C' ? day.maxtempC : day.maxtempF;
+        const min = unit === 'C' ? day.mintempC : day.mintempF;
+        const icon = getIcon(day.hourly[0].weatherDesc[0].value);
+        const card = document.createElement('div');
+        card.className = 'forecast-card';
+        card.innerHTML = `
+          <h3>${day.date}</h3>
+          <p>${icon}</p>
+          <p>🌡️ ${max}°${unit} / ${min}°${unit}</p>
+        `;
+        forecastCards.appendChild(card);
+      });
+    }
+
+    function getIcon(desc) {
+      const icons = {
+        'Sunny': '☀️',
+        'Clear': '☀️',
+        'Partly cloudy': '⛅',
+        'Cloudy': '☁️',
+        'Overcast': '☁️',
+        'Light rain': '🌧️',
+        'Heavy rain': '🌧️',
+        'Light snow': '❄️',
+        'Heavy snow': '❄️',
+        'Thunderstorms': '⛈️',
+        'Mist': '🌫️',
+        'Fog': '🌫️'
+      };
+      return icons[desc] || '❓';
+    }
+
+    cityInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') getWeather();
+    });
+  </script>
+</body>
+</html>

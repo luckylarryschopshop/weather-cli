@@ -1,0 +1,5 @@
+services:
+  weather-cli:
+    build: .
+    ports:
+      - "3009:80"
